@@ -1,0 +1,24 @@
+{
+  "name": "employee-tracker-mysql-",
+  "version": "1.0.0",
+  "description": "A command line application that provide interfaces that are \"Content management Systems (CMS)\".  It manages a company's employee database, using Node.js, Inquirer, and MySQL.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/louieiply/Employee-Tracker-MySQL-.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/louieiply/Employee-Tracker-MySQL-/issues"
+  },
+  "homepage": "https://github.com/louieiply/Employee-Tracker-MySQL-#readme",
+  "dependencies": {
+    "console.table": "^0.10.0",
+    "inquirer": "^8.2.4",
+    "mysql2": "^2.3.3"
+  }
+}
