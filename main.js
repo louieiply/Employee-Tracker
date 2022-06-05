@@ -49,6 +49,61 @@ const roleQuestion = [
     }
 ]
 
+const setUpdateEmployeeQuestion = async (employees,roles) => {
+    return [
+        {
+            type: "list",
+            name: "employee",
+            message: "Which employee you would like to choose?",
+            choices: employees,
+        },
+        {
+            type: "list",
+            name: "role",
+            message: "Which role would you like to reassign to the employee?",
+            choices: roles,
+        },
+    ]
+}
+
+const setEmployeeQuestion = (question) => {
+    return [
+        {
+            type: "input",
+            name: "firstname",
+            message: "What is the first name of the employee?",
+        },
+        {
+            type: "input",
+            name: "lastname",
+            message: "What is the last name of the employee?",
+        },
+        {
+            type: "list",
+            name: "role",
+            message: "What is the role of the employee?",
+            choices: question,
+        },
+        {
+            type: "list",
+            name: "hasManager",
+            message: "Do the employee has a manager?",
+            choices: ["Yes","No"],
+        },
+    ]
+
+}
+
+const exitOrNotQuestions = [
+    {
+        type: "list",
+        name: "exitOrNot",
+        message: "Are you finished with the application?",
+        choices: ["Yes","No"],
+    }
+]
+
+
 const getAllEmployeeInfo = async () => {
     await con.promise().query(`SELECT employee.id AS employee_id, 
                         first_name, 
@@ -57,11 +112,11 @@ const getAllEmployeeInfo = async () => {
                         role.salary, 
                         role.department_name, 
                         manager_id AS manager_id_number, 
-                        (SELECT first_name FROM employee WHERE  manager_id = manager_id_number ) AS 'manager_firstname',
-                        (SELECT last_name FROM employee WHERE  manager_id = manager_id_number ) AS 'manager_lastname' 
+                        (SELECT first_name FROM employee WHERE id = manager_id_number LIMIT 1) AS 'manager_firstname',
+                        (SELECT last_name FROM employee WHERE id = manager_id_number LIMIT 1) AS 'manager_lastname' 
                         FROM employee 
                         JOIN (SELECT company_role.id AS role_id, title, salary, department_name  FROM company_role JOIN department ON company_role.department_id = department.id) AS role 
-                        ON employee.role_id = role.role_id ORDER BY employee.id`)
+                        ON employee.role_id = role.role_id ORDER BY employee.id;`)
     .then( ([result,col]) =>{
         console.table(result);
     });
@@ -81,11 +136,12 @@ const getAllDepartmentInfo = async () => {
     });
 }
 
-const createDepartment =  (departmentName) => {
+const createDepartment = async (departmentName) => {
     const {department} =  departmentName;
-    con.promise().query(`INSERT INTO department (department_name) VALUES ('${department}');`)
+    await con.promise().query(`INSERT INTO department (department_name) VALUES ('${department}');`)
     .then( (result) =>{
-        console.log(result);
+        console.clear();
+        console.log("Department has been created.");
     });
 }
 
@@ -112,19 +168,114 @@ const createRole = async (RoleName) => {
     const department_id = quests.choices.indexOf(response.department_name) + 1;
     await con.promise().query(`INSERT INTO company_role (title, salary, department_id) VALUES ('${role}','${salary}', '${department_id}');`)
     .then( (result) =>{
-        console.log(result);
+        console.clear();
+        console.log("Company role has been created.");
     });
 }
 
+const createEmployee = async () => {
+    var manager_id = null;
+    var result_obj = new Array();
+    var role_question = new Array();
+    const manager_array = new Array();
+    setEmployeeQuestion();
+    await con.promise().query(`SELECT title FROM company_role ORDER BY id;`)
+    .then(([result,col]) =>{
+        result_obj = result;
+    });
+    result_obj.forEach(item => {
+        role_question.push(item.title);
+    });
+    const quests = [
+        {
+            type: "input",
+            name: "firstname",
+            message: "What is the first name of the employee?",
+        },
+        {
+            type: "input",
+            name: "lastname",
+            message: "What is the last name of the employee?",
+        },
+        {
+            type: "list",
+            name: "role",
+            message: "What is the role of the employee?",
+            choices: role_question,
+        },
+        {
+            type: "list",
+            name: "hasManager",
+            message: "Does the employee have a manager?",
+            choices: ["Yes","No"],
+        },
+    ];
+    const response = await startPrompt(quests);
+    if(response.hasManager == "Yes"){
+        await con.promise().query(`SELECT first_name, last_name, company_role.title FROM employee JOIN company_role ON role_id = company_role.id where company_role.title LIKE '%Manager%' ORDER BY employee.id; `)
+        .then(([result,col]) => {
+                result.forEach(manager => {
+                    let manager_str = JSON.stringify(manager);
+                    manager_array.push(manager_str.substring(1,manager_str.length-1));
+                });
+        });
+        const manager_response = await startPrompt(
+                {
+                    type: "list",
+                    name: "manager",
+                    message: "Select the manager for the employee:",
+                    choices: manager_array,
+                }
+            );
+        manager_id = `'` + manager_array.indexOf(manager_response.manager) + 1 +`'`;
+    }
+    const role_id = role_question.indexOf(response.role) + 1;
+    await con.promise().query(`INSERT INTO employee (first_name,last_name,role_id,manager_id) VALUES ('${response.firstname}','${response.lastname}', '${role_id}', ${manager_id});`)
+    .then( (result) =>{
+        console.clear();
+        console.log("Employee has been created.")
+    });
+}
 
-const  startPrompt = async (questionSet) => {
+const updateEmployeeRole = async () => {
+    const employees_array = new Array();
+    const roles_array = new Array();
+    await con.promise().query(`SELECT employee.id, first_name, last_name, title FROM employee JOIN company_role ON role_id = company_role.id ORDER BY employee.id;`)
+    .then(([result,col]) => {
+        result.forEach(employee => {
+            const current_role = `Full Name: ${employee.first_name} ${employee.last_name} | Title: ${employee.title}`;
+            employees_array.push(current_role);
+        });
+    })
+    await con.promise().query(`SELECT title FROM company_role;`)
+    .then(([result,col]) => {
+        result.forEach(role => {
+            const current_role = `Job Title: ${role.title}`;
+            roles_array.push(current_role);
+        });
+    })
+    const employee_question = await setUpdateEmployeeQuestion(employees_array,roles_array);
+    const response = await startPrompt(employee_question);
+    const role_id = roles_array.indexOf(response.role) + 1;
+    const employee_id = employees_array.indexOf(response.employee) + 1;
+    await con.promise().query(`UPDATE employee SET role_id = ${role_id} WHERE id = ${employee_id}`)
+    .then((result) => {
+        console.clear();
+        console.log(`Employee's role has been updated.`);
+    });
+
+};
+
+
+const startPrompt = async (questionSet) => {
     const answer = await inquirer.prompt(questionSet);
     return answer;
 }
 
 const init = async () => {
+    console.clear();
     await startPrompt(initQuestion);
-    while(finishOrNot != true){
+    while(!finishOrNot){
         const actionResult = await startPrompt(viewOptions);
         const {actionSQL} = actionResult;
         switch (actionSQL) {
@@ -139,21 +290,24 @@ const init = async () => {
                 break;
             case "Add a department":
                 const departmentName = await startPrompt(departmentQuestion);
-                createDepartment(departmentName);
+                await createDepartment(departmentName);
                 break;
             case "Add a role":
                 const roleName = await startPrompt(roleQuestion);
                 await createRole(roleName);
                 break;
             case "Add an employee":
+                await createEmployee();
                 break;    
-            case "update an employee role":
-
+            case "Update an employee role":
+                await updateEmployeeRole();
                 break;     
 
         }
-        
+        const answer = await startPrompt(exitOrNotQuestions);
+        finishOrNot = answer.exitOrNot == "Yes"? true: false;
     }
+    con.end();
 }
 
 init();
