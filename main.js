@@ -212,7 +212,7 @@ const createEmployee = async () => {
     ];
     const response = await startPrompt(quests);
     if(response.hasManager == "Yes"){
-        await con.promise().query(`SELECT first_name, last_name, company_role.title FROM employee JOIN company_role ON role_id = company_role.id where company_role.title LIKE '%Manager%' ORDER BY employee.id; `)
+        await con.promise().query(`SELECT employee.id,first_name, last_name, company_role.title FROM employee JOIN company_role ON role_id = company_role.id where company_role.title LIKE '%Manager%' ORDER BY employee.id; `)
         .then(([result,col]) => {
                 result.forEach(manager => {
                     let manager_str = JSON.stringify(manager);
@@ -227,7 +227,7 @@ const createEmployee = async () => {
                     choices: manager_array,
                 }
             );
-        manager_id = `'` + manager_array.indexOf(manager_response.manager) + 1 +`'`;
+        manager_id = JSON.parse("{"+manager_response.manager+"}").id;
     }
     const role_id = role_question.indexOf(response.role) + 1;
     await con.promise().query(`INSERT INTO employee (first_name,last_name,role_id,manager_id) VALUES ('${response.firstname}','${response.lastname}', '${role_id}', ${manager_id});`)
